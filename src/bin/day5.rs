@@ -42,7 +42,7 @@ impl MapEntry {
 
 #[derive(Debug)]
 struct Almanac {
-    _seeds: Vec<u64>,
+    seeds: Vec<u64>,
     maps: Vec<Map>,
 }
 
@@ -51,7 +51,7 @@ impl Almanac {
         let (seeds, maps) = contents.split_once("\n\n").unwrap();
 
         Self {
-            _seeds: seeds[7..]
+            seeds: seeds[7..]
                 .split_ascii_whitespace()
                 .map(|seed| seed.parse::<u64>().unwrap())
                 .collect(),
@@ -87,9 +87,21 @@ impl Almanac {
     }
 
     pub fn pt1(&self) -> u64 {
-        self._seeds
+        self.seeds
             .iter()
             .map(|seed| self.to_location(seed))
+            .min()
+            .unwrap()
+    }
+
+    pub fn pt2(&self) -> u64 {
+        // 1815746760 seeds o_O
+        self.seeds
+            .chunks(2)
+            .into_iter()
+            .map(|chunk| chunk[0]..chunk[0] + chunk[1])
+            .flatten()
+            .map(|seed| self.to_location(&seed))
             .min()
             .unwrap()
     }
@@ -99,6 +111,7 @@ fn main() {
     let almanac =
         Almanac::load(fs::read_to_string("inputs/day5.txt").expect("Failed to read input"));
     println!("Part 1: {}", almanac.pt1());
+    println!("Part 2: {}", almanac.pt2());
 }
 
 #[test]
@@ -151,4 +164,12 @@ fn test_part1() {
     assert_eq!(almanac.to_location(&55), 86);
     assert_eq!(almanac.to_location(&13), 35);
     assert_eq!(almanac.pt1(), 35);
+}
+
+#[test]
+fn test_part2() {
+    let almanac =
+        Almanac::load(fs::read_to_string("samples/day5.txt").expect("Failed to read input"));
+
+    assert_eq!(almanac.pt2(), 46);
 }
