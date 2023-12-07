@@ -21,6 +21,7 @@ impl Card {
                 'Q' => 12,
                 'J' => 11,
                 'T' => 10,
+                '*' => 1, // * = joker
                 _ => label.to_digit(10).unwrap(),
             },
         }
@@ -85,34 +86,32 @@ impl Hand {
     }
 
     pub fn identify(&self) -> IdentifiedHand {
-        let label_frequency: HashMap<char, u32> =
-            self.cards.iter().fold(HashMap::new(), |mut counts, card| {
-                match counts.get(&card.label) {
-                    Some(count) => counts.insert(card.label, count + 1),
-                    None => counts.insert(card.label, 1),
+        let mut label_freqs: HashMap<char, u32> =
+            self.cards.iter().fold(HashMap::new(), |mut freqs, card| {
+                match freqs.get(&card.label) {
+                    Some(count) => freqs.insert(card.label, count + 1),
+                    None => freqs.insert(card.label, 1),
                 };
-                counts
+                freqs
             });
+
+        let joker_count = label_freqs.get(&'*').unwrap_or(&0u32).clone();
+        label_freqs.remove(&'*');
 
         IdentifiedHand {
             hand: self,
-            hand_type: match label_frequency.values().max().unwrap() {
+            hand_type: match label_freqs.values().max().unwrap_or(&0) + joker_count {
                 5 => HandType::FiveOfAKind,
                 4 => HandType::FourOfAKind,
                 3 => {
-                    if label_frequency.values().any(|&freq| freq == 2) {
+                    if label_freqs.len() == 2 {
                         HandType::FullHouse
                     } else {
                         HandType::ThreeOfAKind
                     }
                 }
                 2 => {
-                    if label_frequency
-                        .values()
-                        .filter(|&freq| freq >= &2u32)
-                        .count()
-                        == 2
-                    {
+                    if label_freqs.values().filter(|&freq| freq >= &2u32).count() == 2 {
                         HandType::TwoPair
                     } else {
                         HandType::OnePair
@@ -149,7 +148,11 @@ impl Puzzle {
         }
     }
 
-    pub fn pt1(&self) -> u32 {
+    pub fn load_pt2(contents: String) -> Self {
+        Self::load(contents.replace("J", "*"))
+    }
+
+    pub fn total_winnings(&self) -> u32 {
         let mut identified_hands = self
             .hands
             .iter()
@@ -169,10 +172,14 @@ impl Puzzle {
 }
 
 fn main() {
-    // 248162916
     println!(
         "Part 1: {}",
-        Puzzle::load(fs::read_to_string("inputs/day7.txt").unwrap()).pt1()
+        Puzzle::load(fs::read_to_string("inputs/day7.txt").unwrap()).total_winnings()
+    );
+    // Attempts: 249591015 -> 250892960 -> 249631254
+    println!(
+        "Part 2: {}",
+        Puzzle::load_pt2(fs::read_to_string("inputs/day7.txt").unwrap()).total_winnings()
     );
 }
 
@@ -296,8 +303,66 @@ mod tests {
     }
 
     #[test]
+    fn test_joker() {
+        assert_eq!(
+            Hand::from_string("*KKKK 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::FiveOfAKind
+        );
+        assert_eq!(
+            Hand::from_string("1*KKK 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::FourOfAKind
+        );
+        assert_eq!(
+            Hand::from_string("11*KK 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::FullHouse
+        );
+        assert_eq!(
+            Hand::from_string("12*KK 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::ThreeOfAKind
+        );
+        assert_eq!(
+            Hand::from_string("12**K 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::ThreeOfAKind
+        );
+        assert_eq!(
+            Hand::from_string("12*** 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::FourOfAKind
+        );
+        assert_eq!(
+            Hand::from_string("1**** 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::FiveOfAKind
+        );
+        assert_eq!(
+            Hand::from_string("***** 123".to_string())
+                .identify()
+                .hand_type,
+            HandType::FiveOfAKind
+        );
+    }
+
+    #[test]
     fn test_part1() {
         let puzzle = Puzzle::load(fs::read_to_string("samples/day7.txt").unwrap());
-        assert_eq!(puzzle.pt1(), 6440);
+        assert_eq!(puzzle.total_winnings(), 6440);
+    }
+
+    #[test]
+    fn test_part2() {
+        let puzzle = Puzzle::load_pt2(fs::read_to_string("samples/day7.txt").unwrap());
+        assert_eq!(puzzle.total_winnings(), 5905);
     }
 }
